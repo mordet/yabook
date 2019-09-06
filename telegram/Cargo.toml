@@ -7,13 +7,17 @@ authors = [
     "Alexey Kokhanov <kokhanov@yandex-team.ru>"
 ]
 edition = "2018"
+description = "YaBook telegram bot executable"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 # hyper = "0.12.34"
 # hyper-rustls = "0.17.1"
+tokio-core = "0.1.17"
+tokio = "0.2.0-alpha.4"
 serde_json = "0.9.10"
 serde = "0.9.14"
 serde_derive = "0.9.14"
-telegram-bot = "0.6.3"
+telegram-bot = {git="https://github.com/telegram-rs/telegram-bot"}
+futures-preview = "=0.3.0-alpha.18"
