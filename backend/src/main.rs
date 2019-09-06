@@ -2,6 +2,7 @@
 use futures_util::TryStreamExt;
 use hyper::service::{make_service_fn, service_fn};
 use hyper::{Body, Method, Request, Response, Server, StatusCode};
+use serde::Serialize;
 
 mod handlers;
 
@@ -13,40 +14,52 @@ use std::borrow::Borrow;
 
 mod db;
 
+fn response_from_json<T: Serialize>(res: T) -> Result<Response<Body>, handlers::Error> {
+    Ok(Response::new(Body::from(serde_json::to_string(&res)?)))
+}
+
 /// This is our service handler. It receives a Request, routes on its
 /// path, and returns a Future of a Response.
 async fn echo(req: Request<Body>) -> Result<Response<Body>, handlers::Error> {
     let res = match (req.method(), req.uri().path()) {
-        (&Method::GET, "/tables/list") => Ok(Response::new(Body::from(
-            serde_json::to_string(&handlers::tables::handle_get().await?)?))),
+        (&Method::GET, "/tables/list") =>
+            response_from_json(handlers::tables::handle_get().await?),
+        // (&Method::GET, "/tables/list") => Ok(Response::new(Body::from(
+            // serde_json::to_string(&handlers::tables::handle_get().await?)?))),
         // Serve some instructions at /
-        (&Method::GET, "/") => Ok(Response::new(Body::from(
-            "Try POSTing data to /echo such as: `curl localhost:3000/echo -XPOST -d 'hello world'`",
-        ))),
+        // (&Method::GET, "/") => Ok(Response::new(Body::from(
+            // "Try POSTing data to /echo such as: `curl localhost:3000/echo -XPOST -d 'hello world'`",
+        // ))),
         // Simply echo the body back to the client.
-        (&Method::POST, "/echo") => Ok(Response::new(req.into_body())),
+        // (&Method::POST, "/echo") => Ok(Response::new(req.into_body())),
         // Convert to uppercase before sending back to client using a stream.
-        (&Method::POST, "/echo/uppercase") => {
-            let chunk_stream = req.into_body().map_ok(|chunk| {
-                chunk
-                    .iter()
-                    .map(|byte| byte.to_ascii_uppercase())
-                    .collect::<Vec<u8>>()
-            });
-            Ok(Response::new(Body::wrap_stream(chunk_stream)))
-        }
-        (&Method::POST, "/echo/reversed") => {
-            let whole_chunk = req.into_body().try_concat().await;
-            let reversed_chunk =
-                whole_chunk.map(move |chunk| chunk.iter().rev().cloned().collect::<Vec<u8>>())?;
-            Ok(Response::new(Body::from(reversed_chunk)))
-        }
+        // (&Method::POST, "/echo/uppercase") => {
+            // let chunk_stream = req.into_body().map_ok(|chunk| {
+                // chunk
+                    // .iter()
+                    // .map(|byte| byte.to_ascii_uppercase())
+                    // .collect::<Vec<u8>>()
+            // });
+            // Ok(Response::new(Body::wrap_stream(chunk_stream)))
+        // }
+        // (&Method::POST, "/echo/reversed") => {
+            // let whole_chunk = req.into_body().try_concat().await;
+            // let reversed_chunk =
+                // whole_chunk.map(move |chunk| chunk.iter().rev().cloned().collect::<Vec<u8>>())?;
+            // Ok(Response::new(Body::from(reversed_chunk)))
+        // }
         // Return the 404 Not Found for other routes.
         _ => {
             let mut not_found = Response::default();
             *not_found.status_mut() = StatusCode::NOT_FOUND;
             Ok(not_found)
         }
+    };
+    match res {
+        Ok(r) => Ok(r),
+        Err(e) => Ok(Response::builder()
+                     .status(StatusCode::INTERNAL_SERVER_ERROR)
+                     .body(Body::from(e.to_string()))?),
     }
 
 }
