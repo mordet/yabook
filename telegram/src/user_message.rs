@@ -1,8 +1,8 @@
 use telegram_bot::{MessageEntityKind, MessageEntity};
 
 pub struct UserMessage {
-    command: Option<String>,
-    mentions: Vec<String>
+    pub command: Option<String>,
+    pub mentions: Vec<String>
 }
 
 fn substring(data: &String, offset: i64, length: i64) -> String {
