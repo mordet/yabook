@@ -15,6 +15,9 @@ use std::borrow::Borrow;
 use std::collections::HashMap;
 use std::time::Duration;
 
+use db::user::{insert_user, find_user, User};
+use db::table::{insert_table, find_table, tables, Table};
+
 mod db;
 
 #[derive(Serialize, Deserialize)]
@@ -136,6 +139,32 @@ fn params() -> (ConnectParams, TlsMode<'static>) {
     );
 }
 
+fn tests(db: &Connection) {
+    let res = insert_user(&db, "'); DROP SCHEMA db;--");
+    if res.is_ok() {
+        println!("Ok insert");
+    } else {
+        println!("Err: {}", res.err().unwrap());
+    }
+    let user: Option<User> = find_user(&db, "test_user");
+    match user {
+        Some(_name) => println!("User is present"),
+        None       => println!("User not found"),
+    }
+
+    let res = insert_table(&db, "test_table", "benua");
+    if res.is_ok() {
+        println!("Ok insert");
+    } else {
+        println!("Err: {}", res.err().unwrap());
+    }
+    let table: Option<Table> = find_table(&db, "test_table", "benua");
+    match table {
+        Some(_table) => println!("Table is present"),
+        None        => println!("Table not found"),
+    }
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let (params, sslmode) = params();
@@ -147,17 +176,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let service = make_service_fn(|_| async { Ok::<_, handlers::Error>(service_fn(echo)) });
     let server = Server::bind(&addr).serve(service);
     println!("Listening on http://{}", addr);
-//    let res = db::table::insert_user(&db, "test_user");
-//    if res.is_ok() {
-//        println!("Ok insert");
-//    } else {
-//        println!("Err: {}", res.err().unwrap());
-//    }
-//    let user: Option<db::table::User> = db::table::find_user(&db, "test_user");
-//    match user {
-//        Some(name) => println!("User is present"),
-//        None       => println!("User not found"),
-//    }
+    tests(&db);
+
     server.await?;
     Ok(())
 }

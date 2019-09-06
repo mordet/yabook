@@ -1,19 +1,5 @@
 use postgres::{Connection};
 
-struct Table {
-    name: String,
-    location: String,
-}
-
-struct Book {
-    id: i32,
-    start: usize,
-    duration: i32,
-    table_name: String,
-    owner: String,
-    public: bool,
-}
-
 pub fn init_db(conn: &Connection) {
     let commands  = vec![
         "CREATE SCHEMA IF NOT EXISTS db;",

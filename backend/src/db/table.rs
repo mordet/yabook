@@ -1,19 +1,40 @@
 extern crate postgres;
 
 use postgres::{Connection, Result};
+use serde_derive::{Deserialize, Serialize};
 
-pub struct User {
+#[derive(Serialize, Deserialize)]
+pub struct Table {
     pub name: String,
+    pub location: String,
 }
 
-pub fn insert_user(conn: &Connection, name: &str) -> Result<u64>{
-    conn.execute("
-        INSERT INTO db.user VALUES ($1) ON CONFLICT DO NOTHING", &[&name])
+impl Table {
+    pub fn new<T: Into<String>>(name: T, location: T) -> Table {
+        Table { name: name.into(), location: location.into() }
+    }
 }
 
-pub fn find_user(conn: &Connection, name: &str) -> Option<User>{
-    for row in &conn.query("SELECT name FROM db.user WHERE name = $1", &[&name]).unwrap() {
-        return Some(User { name: row.get(0) });
+pub fn insert_table(conn: &Connection, name: &str, location: &str) -> Result<u64>{
+    conn.execute("INSERT INTO db.table VALUES ($1, $2) ON CONFLICT DO NOTHING",
+                 &[&name, &location])
+}
+
+pub fn find_table(conn: &Connection, name: &str, location: &str) -> Option<Table>{
+    for row in &conn.query(
+        "SELECT name, location FROM db.table WHERE name = $1 AND location = $2",
+        &[&name, &location]).unwrap() {
+        return Some(Table { name: row.get(0) , location: row.get(1)});
     }
     return None;
+}
+
+pub fn tables(conn: &Connection) -> Vec<Table>{
+    let mut result = Vec::new();
+    for row in &conn.query(
+        "SELECT name, location FROM db.table", &[]).unwrap() {
+
+        result.push(Table { name: row.get(0) , location: row.get(1)});
+    }
+    return result;
 }
