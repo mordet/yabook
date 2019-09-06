@@ -3,6 +3,11 @@ use hyper::{Body, Method, Request, Response, Server, StatusCode};
 use hyper::service::{make_service_fn, service_fn};
 use futures_util::TryStreamExt;
 
+use ini::Ini;
+use postgres::{Connection, TlsMode};
+
+mod db;
+
 /// This is our service handler. It receives a Request, routes on its
 /// path, and returns a Future of a Response.
 async fn echo(req: Request<Body>) -> Result<Response<Body>, hyper::Error> {
@@ -46,8 +51,26 @@ async fn echo(req: Request<Body>) -> Result<Response<Body>, hyper::Error> {
         }
     }
 }
+
+fn params() -> (String, TlsMode<'static>) {
+    let conf = Ini::load_from_file(".yabook").unwrap();
+    let general = conf.general_section();
+
+    let connection_string = general.get("conn").unwrap();
+    return (
+        connection_string.clone(),
+        postgres::TlsMode::None
+    );
+
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let (params, sslmode) = params();
+    let db = Connection::connect(params, sslmode).unwrap();
+
+    db::init::init_db(db);
+
     let addr = ([0, 0, 0, 0], 8080).into();
     let service = make_service_fn(|_| {
         async {

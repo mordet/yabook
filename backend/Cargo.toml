@@ -7,7 +7,9 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-postgres = "0.15.2"
+postgres = "0.15"
+tokio-postgres = "0.4.0-rc.3"
+rust-ini = "0.13"
 url = "2.1.0"
 log = "0.4"
 pretty_env_logger = "0.3"
@@ -17,8 +19,5 @@ tokio = { version = "=0.2.0-alpha.4" }
 #hyper = { git = "https://github.com/hyperium/hyper" }
 hyper = "0.13.0-alpha.1"
 futures-util-preview = { version = "=0.3.0-alpha.18" }
-serde = "1.0"
-serde_derive = "1.0"
-serde_json = "1.0"
 async-trait = "0.1.11"
 failure = "0.1.5"
