@@ -1,6 +1,6 @@
 extern crate postgres;
 
-use postgres::{Connection, Result};
+use postgres::{Transaction};
 use serde_derive::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize)]
@@ -15,12 +15,12 @@ impl Table {
     }
 }
 
-pub fn insert_table(conn: &Connection, name: &str, location: &str) -> Result<u64>{
+pub fn insert_table(conn: &mut Transaction, name: &str, location: &str) -> Result<u64, postgres::Error>{
     conn.execute("INSERT INTO db.table VALUES ($1, $2) ON CONFLICT DO NOTHING",
                  &[&name, &location])
 }
 
-pub fn find_table(conn: &Connection, name: &str, location: &str) -> Option<Table>{
+pub fn find_table(conn: &mut Transaction, name: &str, location: &str) -> Option<Table>{
     for row in &conn.query(
         "SELECT name, location FROM db.table WHERE name = $1 AND location = $2",
         &[&name, &location]).unwrap() {
@@ -29,7 +29,7 @@ pub fn find_table(conn: &Connection, name: &str, location: &str) -> Option<Table
     return None;
 }
 
-pub fn tables(conn: &Connection) -> Vec<Table>{
+pub fn tables(conn: &mut Transaction) -> Vec<Table>{
     let mut result = Vec::new();
     for row in &conn.query(
         "SELECT name, location FROM db.table", &[]).unwrap() {

@@ -1,7 +1,6 @@
 extern crate postgres;
 
 use chrono::{DateTime, Utc};
-use postgres::{Connection, Result};
 use serde_derive::{Deserialize, Serialize};
 use std::time::Duration;
 

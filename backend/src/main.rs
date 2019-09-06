@@ -1,4 +1,6 @@
 //#![deny(warnings)]
+#[macro_use]
+extern crate lazy_static;
 use futures_util::TryStreamExt;
 use hyper::service::{make_service_fn, service_fn};
 use hyper::{Body, Method, Request, Response, Server, StatusCode};
@@ -8,9 +10,8 @@ use url::form_urlencoded;
 
 mod handlers;
 
-use ini::Ini;
-use postgres::{Connection, TlsMode};
-use postgres::params::{ConnectParams, Host};
+use postgres::{NoTls, Client, Transaction};
+use r2d2_postgres::{PostgresConnectionManager};
 use std::borrow::Borrow;
 use std::collections::HashMap;
 use std::time::Duration;
@@ -56,11 +57,11 @@ fn get_param(map: &HashMap<String, String>, name: &str) -> Result<String, handle
 }
 
 async fn handle(req: Request<Body>) -> Result<Response<Body>, handlers::Error> {
+    println!("request {} {}", &req.method(), &req.uri());
     match (req.method(), req.uri().path()) {
         (&Method::GET, "/tables/list") => response_from_json(handlers::tables::handle_get().await?),
         (&Method::GET, "/booking/list") => {
-            let query_map =
-                get_query_map(&req).ok_or(serde_json::to_string(&Status::new("No query"))?)?;
+            let query_map = get_query_map(&req).ok_or("No query")?;
             let table_name = get_param(&query_map, "table")?;
             let from = get_param(&query_map, "from")?.parse::<i64>()?;
             let to = get_param(&query_map, "to")?.parse::<i64>()?;
@@ -73,8 +74,7 @@ async fn handle(req: Request<Body>) -> Result<Response<Body>, handlers::Error> {
             response_from_json(handlers::booking::handle_create(req).await?)
         },
         (&Method::DELETE, "/booking") => {
-            let query_map =
-                get_query_map(&req).ok_or(serde_json::to_string(&Status::new("No query"))?)?;
+            let query_map = get_query_map(&req).ok_or("No query")?;
             let id = get_param(&query_map, "id")?.parse::<i32>()?;
             response_from_json(handlers::booking::handle_delete(id).await?)
         },
@@ -91,10 +91,20 @@ async fn handle(req: Request<Body>) -> Result<Response<Body>, handlers::Error> {
             response_from_json(handlers::booking::handle_decline(req).await?)
         },
         (&Method::POST, "/booking/item") => {
-            let query_map =
-                get_query_map(&req).ok_or(serde_json::to_string(&Status::new("No query"))?)?;
+            let query_map = get_query_map(&req).ok_or("No query")?;
             let id = get_param(&query_map, "id")?.parse::<i32>()?;
             response_from_json(handlers::booking::handle_item(id).await?)
+        },
+        (&Method::GET, "/user") => {
+            let query_map = get_query_map(&req).ok_or("No query")?;
+            let name = get_param(&query_map, "name")?;
+            response_from_json(handlers::user::handle_get(&name).await?)
+        },
+        (&Method::POST, "/user/create") => {
+            let whole_chunk = req.into_body().try_concat().await?.into_bytes();
+            let body = String::from_utf8(whole_chunk.to_vec())?;
+            let req = serde_json::from_str(&body)?;
+            response_from_json(handlers::user::handle_create(req).await?)
         },
         // Return the 404 Not Found for other routes.
         _ => {
@@ -118,65 +128,56 @@ async fn echo(req: Request<Body>) -> Result<Response<Body>, handlers::Error> {
     };
 }
 
-fn params() -> (ConnectParams, TlsMode<'static>) {
-    let conf = Ini::load_from_file(".yabook").unwrap();
-    let general = conf.general_section();
-
-    let host = general.get("host").unwrap();
-    let port = general.get("port").unwrap();
-    let dbname = general.get("dbname").unwrap();
-    let user = general.get("user").unwrap();
-    let pass = general.get("pass").unwrap();
-
-    return (
-        ConnectParams::builder()
-            .port(port.parse::<u16>().unwrap())
-            .user(&user, Some(pass))
-            .database(&dbname)
-            .connect_timeout(Some(Duration::from_secs(30)))
-            .build(Host::Tcp(host.clone())),
-        postgres::TlsMode::None,
-    );
-}
-
-fn tests(db: &Connection) {
-    let res = insert_user(&db, "'); DROP SCHEMA db;--");
+fn tests(mut db: &mut Transaction) {
+    let res = insert_user(&mut db, "'); DROP SCHEMA db;--");
     if res.is_ok() {
         println!("Ok insert");
     } else {
         println!("Err: {}", res.err().unwrap());
     }
-    let user: Option<User> = find_user(&db, "test_user");
+    let user: Option<User> = find_user(&mut db, "test_user");
     match user {
         Some(_name) => println!("User is present"),
         None       => println!("User not found"),
     }
 
-    let res = insert_table(&db, "test_table", "benua");
+    let res = insert_table(&mut db, "test_table", "benua");
     if res.is_ok() {
         println!("Ok insert");
     } else {
         println!("Err: {}", res.err().unwrap());
     }
-    let table: Option<Table> = find_table(&db, "test_table", "benua");
+    let table: Option<Table> = find_table(&mut db, "test_table", "benua");
     match table {
         Some(_table) => println!("Table is present"),
         None        => println!("Table not found"),
     }
 }
 
+fn connect() -> r2d2::Pool<PostgresConnectionManager<NoTls>> {
+    let manager = PostgresConnectionManager::new(
+        "host=localhost port=5433 user=postgres password=yabook".parse().unwrap(),
+        NoTls,
+
+    );
+    r2d2::Pool::new(manager).unwrap()
+}
+
+lazy_static! {
+    static ref CONNECTION: r2d2::Pool<PostgresConnectionManager<NoTls>> = connect();
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let (params, sslmode) = params();
-    let db = Connection::connect(params, sslmode).unwrap();
-
-    db::init::init_db(&db);
+    let mut pool = CONNECTION.clone().get()?;
+    let mut trx = pool.transaction()?;
+    db::init::init_db(&mut trx);
 
     let addr = ([0, 0, 0, 0], 8080).into();
     let service = make_service_fn(|_| async { Ok::<_, handlers::Error>(service_fn(echo)) });
     let server = Server::bind(&addr).serve(service);
     println!("Listening on http://{}", addr);
-    tests(&db);
+    tests(&mut trx);
 
     server.await?;
     Ok(())

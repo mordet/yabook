@@ -9,9 +9,9 @@ pub struct Response {
 }
 
 pub async fn handle_get() -> Result<Response, handlers::Error> {
+    let mut pool = db::get_pool().get()?;
+    let mut trx = pool.transaction()?;
     Ok(Response {
-        tables: vec![
-            db::table::Table::new("test", "spb"),
-        ],
+        tables: db::table::tables(&mut trx)
     })
 }

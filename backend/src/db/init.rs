@@ -1,6 +1,6 @@
-use postgres::{Connection};
+use postgres::{Transaction};
 
-pub fn init_db(conn: &Connection) {
+pub fn init_db(conn: &mut Transaction) {
     let commands  = vec![
         "CREATE SCHEMA IF NOT EXISTS db;",
         "CREATE TABLE IF NOT EXISTS db.table(
@@ -36,6 +36,6 @@ pub fn init_db(conn: &Connection) {
     ];
 
     for command in commands.iter() {
-        conn.execute(command, &[]).unwrap();
+        conn.query(*command, &[]).unwrap();
     }
 }
