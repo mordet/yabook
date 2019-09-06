@@ -22,3 +22,4 @@ serde_derive = "0.9.14"
 telegram-bot = {git="https://github.com/telegram-rs/telegram-bot"}
 futures-preview = "=0.3.0-alpha.18"
 reqwest = "0.9.20"
+chrono = "0.4"

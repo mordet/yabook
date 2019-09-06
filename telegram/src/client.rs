@@ -1,15 +1,23 @@
 extern crate reqwest;
 
 use serde_derive::{Serialize, Deserialize};
+use chrono::Utc;
 
-static URI: &str = "http://yabook.chebykin.org";
+static URI: &str = "https://yabook.chebykin.org";
 
 #[derive(Serialize,Deserialize)]
 pub struct BookingListResponse {
 }
 
-pub fn get_bookings_list() -> Result<BookingListResponse, Box<dyn std::error::Error>> {
-    let resp = reqwest::get("http://yabook.chebykin.org/booking/list")?.text()?;
+pub fn get_bookings_list(table: String) -> Result<BookingListResponse, Box<dyn std::error::Error>> {
+    let now = Utc::now().timestamp();
+    let plus_hour = now + 3600;
+
+    let uri = URI.to_string() + format!("/booking/list?table={}&from={}&to={}", table, now, plus_hour).as_str();
+
+    let resp = reqwest::get(uri.as_str())?
+        .error_for_status()?
+        .text()?;
 
     println!("/booking/list response {}", &resp);
 
@@ -38,9 +46,11 @@ pub fn create_booking(table: String, owner: String, invite: Vec<String>)
     let resp = client
         .post(&uri)
         .body(serde_json::to_string(&request)?)
-        .send()?.text()?;
+        .send()?
+        .error_for_status()?
+        .text()?;
 
-    println!("/booking/create response {}", &resp);
+    println!("/booking/create response: \"{}\"", &resp);
 
     Ok(serde_json::from_str(&resp)?)
 }
