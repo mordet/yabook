@@ -15,6 +15,7 @@ pub struct CreateRequest {
 
 #[derive(Serialize, Deserialize)]
 pub struct CreateResponse {
+    id: u64
 }
 
 pub async fn handle_get(name: &str) -> Result<Response, handlers::Error> {
@@ -25,5 +26,9 @@ pub async fn handle_get(name: &str) -> Result<Response, handlers::Error> {
 }
 
 pub async fn handle_create(req: CreateRequest) -> Result<CreateResponse, handlers::Error> {
-    Ok(CreateResponse{})
+    let mut pool = db::get_pool().get()?;
+    let mut trx = pool.transaction()?;
+    let id = db::user::insert_user(&mut trx, &req.name)?;
+    trx.commit();
+    Ok(CreateResponse{id: id})
 }

@@ -60,6 +60,12 @@ async fn handle(req: Request<Body>) -> Result<Response<Body>, handlers::Error> {
     println!("request {} {}", &req.method(), &req.uri());
     match (req.method(), req.uri().path()) {
         (&Method::GET, "/tables/list") => response_from_json(handlers::tables::handle_get().await?),
+        (&Method::POST, "/table/create") => {
+            let whole_chunk = req.into_body().try_concat().await?.into_bytes();
+            let body = String::from_utf8(whole_chunk.to_vec())?;
+            let req = serde_json::from_str(&body)?;
+            response_from_json(handlers::tables::handle_create(req).await?)
+        },
         (&Method::GET, "/booking/list") => {
             let query_map = get_query_map(&req).ok_or("No query")?;
             let table_name = get_param(&query_map, "table")?;
