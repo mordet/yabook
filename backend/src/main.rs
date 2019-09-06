@@ -5,6 +5,9 @@ use futures_util::TryStreamExt;
 
 use ini::Ini;
 use postgres::{Connection, TlsMode};
+use postgres::params::{ConnectParams, Host, User};
+use std::time::Duration;
+use std::borrow::Borrow;
 
 mod db;
 
@@ -52,14 +55,25 @@ async fn echo(req: Request<Body>) -> Result<Response<Body>, hyper::Error> {
     }
 }
 
-fn params() -> (String, TlsMode<'static>) {
+fn params() -> (ConnectParams, TlsMode<'static>) {
     let conf = Ini::load_from_file(".yabook").unwrap();
     let general = conf.general_section();
 
-    let connection_string = general.get("conn").unwrap();
-    return (
-        connection_string.clone(),
-        postgres::TlsMode::None
+
+    let host = general.get("host").unwrap();
+    let port = general.get("port").unwrap();
+    let sslmode = general.get("sslmode").unwrap();
+    let dbname = general.get("dbname").unwrap();
+    let user = general.get("user").unwrap();
+    let pass = general.get("pass").unwrap();
+
+    return (ConnectParams::builder()
+        .port(port.parse::<u16>().unwrap())
+        .user(&user, Some(pass))
+        .database(&dbname)
+        .connect_timeout(Some(Duration::from_secs(30)))
+        .build(Host::Tcp(host.clone()))
+    , postgres::TlsMode::None
     );
 
 }
