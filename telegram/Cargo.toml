@@ -1,0 +1,19 @@
+[package]
+name = "telegram"
+version = "0.1.0"
+authors = [
+    "Dmitrii Raspopov <mordeth@yandex-team.ru>",
+    "Ivan Chebykin <ichebykin@yandex-team.ru>",
+    "Alexey Kokhanov <kokhanov@yandex-team.ru>"
+]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+# hyper = "0.12.34"
+# hyper-rustls = "0.17.1"
+serde_json = "0.9.10"
+serde = "0.9.14"
+serde_derive = "0.9.14"
+telegram-bot = "0.6.3"
