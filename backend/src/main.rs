@@ -62,7 +62,6 @@ fn params() -> (ConnectParams, TlsMode<'static>) {
 
     let host = general.get("host").unwrap();
     let port = general.get("port").unwrap();
-    let sslmode = general.get("sslmode").unwrap();
     let dbname = general.get("dbname").unwrap();
     let user = general.get("user").unwrap();
     let pass = general.get("pass").unwrap();
