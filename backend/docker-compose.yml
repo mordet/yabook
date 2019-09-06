@@ -1,0 +1,26 @@
+version: "2"
+
+services:
+  db:
+    image: postgres
+    restart: always
+    environment:
+      POSTGRES_PASSWORD: yabook
+
+  app:
+    build: .
+    networks:
+      - proxy-tier
+      - default
+    restart: always
+    links:
+      - db
+    labels:
+      - "traefik.frontend.rule=Host:yabook.chebykin.org"
+      - "traefik.docker.network=web_proxy-tier"
+      - "traefik.enable=true"
+
+networks:
+  proxy-tier:
+    external:
+      name: web_proxy-tier
