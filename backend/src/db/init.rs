@@ -1,5 +1,3 @@
-extern crate postgres;
-
 use postgres::{Connection};
 
 struct Table {

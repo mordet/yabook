@@ -1,22 +1,17 @@
 use crate::handlers;
+use crate::db;
+
 use serde_derive::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize)]
-struct Table {
-    table_id: String,
-    location: String,
-}
-
-#[derive(Serialize, Deserialize)]
 pub struct Response {
-    tables: Vec<Table>,
+    tables: Vec<db::Table>,
 }
 
 pub async fn handle_get() -> Result<Response, handlers::Error> {
     Ok(Response {
-        tables: vec![Table {
-            table_id: "test".to_owned(),
-            location: "spb".to_owned(),
-        }],
+        tables: vec![
+            db::Table::new("test", "spb"),
+        ],
     })
 }
