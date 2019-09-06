@@ -5,7 +5,7 @@ use futures_util::TryStreamExt;
 
 use ini::Ini;
 use postgres::{Connection, TlsMode};
-use postgres::params::{ConnectParams, Host, User};
+use postgres::params::{ConnectParams, Host};
 use std::time::Duration;
 use std::borrow::Borrow;
 
@@ -83,7 +83,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let (params, sslmode) = params();
     let db = Connection::connect(params, sslmode).unwrap();
 
-    db::init::init_db(db);
+    db::init::init_db(&db);
 
     let addr = ([0, 0, 0, 0], 8080).into();
     let service = make_service_fn(|_| {
@@ -94,6 +94,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let server = Server::bind(&addr)
         .serve(service);
     println!("Listening on http://{}", addr);
+//    let res = db::table::insert_user(&db, "test_user");
+//    if res.is_ok() {
+//        println!("Ok insert");
+//    } else {
+//        println!("Err: {}", res.err().unwrap());
+//    }
+//    let user: Option<db::table::User> = db::table::find_user(&db, "test_user");
+//    match user {
+//        Some(name) => println!("User is present"),
+//        None       => println!("User not found"),
+//    }
     server.await?;
     Ok(())
 }

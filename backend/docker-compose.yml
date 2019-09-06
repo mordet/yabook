@@ -4,13 +4,15 @@ services:
   db:
     image: postgres
     restart: always
+    ports:
+      - 5533:5432
     environment:
       POSTGRES_PASSWORD: yabook
 
   app:
     build: .
     networks:
-      - proxy-tier
+#      - proxy-tier
       - default
     restart: always
     links:
@@ -20,7 +22,7 @@ services:
       - "traefik.docker.network=web_proxy-tier"
       - "traefik.enable=true"
 
-networks:
-  proxy-tier:
-    external:
-      name: web_proxy-tier
+#networks:
+#  proxy-tier:
+#    external:
+#      name: web_proxy-tier
