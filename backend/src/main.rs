@@ -1,7 +1,9 @@
 //#![deny(warnings)]
-use hyper::{Body, Method, Request, Response, Server, StatusCode};
-use hyper::service::{make_service_fn, service_fn};
 use futures_util::TryStreamExt;
+use hyper::service::{make_service_fn, service_fn};
+use hyper::{Body, Method, Request, Response, Server, StatusCode};
+
+mod handlers;
 
 use ini::Ini;
 use postgres::{Connection, TlsMode};
@@ -13,16 +15,16 @@ mod db;
 
 /// This is our service handler. It receives a Request, routes on its
 /// path, and returns a Future of a Response.
-async fn echo(req: Request<Body>) -> Result<Response<Body>, hyper::Error> {
-    match (req.method(), req.uri().path()) {
+async fn echo(req: Request<Body>) -> Result<Response<Body>, handlers::Error> {
+    let res = match (req.method(), req.uri().path()) {
+        (&Method::GET, "/tables/list") => Ok(Response::new(Body::from(
+            serde_json::to_string(&handlers::tables::handle_get().await?)?))),
         // Serve some instructions at /
-        (&Method::GET, "/") => {
-            Ok(Response::new(Body::from("Try POSTing data to /echo such as: `curl localhost:3000/echo -XPOST -d 'hello world'`")))
-        }
+        (&Method::GET, "/") => Ok(Response::new(Body::from(
+            "Try POSTing data to /echo such as: `curl localhost:3000/echo -XPOST -d 'hello world'`",
+        ))),
         // Simply echo the body back to the client.
-        (&Method::POST, "/echo") => {
-            Ok(Response::new(req.into_body()))
-        }
+        (&Method::POST, "/echo") => Ok(Response::new(req.into_body())),
         // Convert to uppercase before sending back to client using a stream.
         (&Method::POST, "/echo/uppercase") => {
             let chunk_stream = req.into_body().map_ok(|chunk| {
@@ -33,17 +35,10 @@ async fn echo(req: Request<Body>) -> Result<Response<Body>, hyper::Error> {
             });
             Ok(Response::new(Body::wrap_stream(chunk_stream)))
         }
-        // Reverse the entire body before sending back to the client.
-        //
-        // Since we don't know the end yet, we can't simply stream
-        // the chunks as they arrive as we did with the above uppercase endpoint.
-        // So here we do `.await` on the future, waiting on concatenating the full body,
-        // then afterwards the content can be reversed. Only then can we return a `Response`.
         (&Method::POST, "/echo/reversed") => {
             let whole_chunk = req.into_body().try_concat().await;
-            let reversed_chunk = whole_chunk.map(move |chunk| {
-                chunk.iter().rev().cloned().collect::<Vec<u8>>()
-            })?;
+            let reversed_chunk =
+                whole_chunk.map(move |chunk| chunk.iter().rev().cloned().collect::<Vec<u8>>())?;
             Ok(Response::new(Body::from(reversed_chunk)))
         }
         // Return the 404 Not Found for other routes.
@@ -53,6 +48,7 @@ async fn echo(req: Request<Body>) -> Result<Response<Body>, hyper::Error> {
             Ok(not_found)
         }
     }
+
 }
 
 fn params() -> (ConnectParams, TlsMode<'static>) {
@@ -85,13 +81,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     db::init::init_db(&db);
 
     let addr = ([0, 0, 0, 0], 8080).into();
-    let service = make_service_fn(|_| {
-        async {
-            Ok::<_, hyper::Error>(service_fn(echo))
-        }
-    });
-    let server = Server::bind(&addr)
-        .serve(service);
+    let service = make_service_fn(|_| async { Ok::<_, handlers::Error>(service_fn(echo)) });
+    let server = Server::bind(&addr).serve(service);
     println!("Listening on http://{}", addr);
 //    let res = db::table::insert_user(&db, "test_user");
 //    if res.is_ok() {
